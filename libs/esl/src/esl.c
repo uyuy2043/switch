@@ -284,12 +284,9 @@ ESL_DECLARE(int) esl_snprintf(char *buffer, size_t count, const char *fmt, ...)
 
 static void null_logger(const char *file, const char *func, int line, int level, const char *fmt, ...)
 {
-	(void)file;
-	(void)func;
-	(void)line;
-	(void)level;
-	(void)fmt;
-
+	if (file && func && line && level && fmt) {
+		return;
+	}
 	return;
 }
 
@@ -699,10 +696,7 @@ ESL_DECLARE(esl_status_t) esl_listen(const char *host, esl_port_t port, esl_list
 	}
 	
 
-	if (esl_socket_reuseaddr(server_sock) != 0) {
-		status = ESL_FAIL;
-		goto end;
-	}
+	esl_socket_reuseaddr(server_sock);
 		   
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -757,10 +751,7 @@ ESL_DECLARE(esl_status_t) esl_listen_threaded(const char *host, esl_port_t port,
 		return ESL_FAIL;
 	}
 
-	if (esl_socket_reuseaddr(server_sock) != 0) {
-		status = ESL_FAIL;
-		goto end;
-	}
+	esl_socket_reuseaddr(server_sock);
 		   
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -999,8 +990,6 @@ ESL_DECLARE(esl_status_t) esl_connect_timeout(esl_handle_t *handle, const char *
 	}
 
 	memcpy(&handle->sockaddr, result->ai_addr, result->ai_addrlen);	
-	freeaddrinfo(result);
-
 	switch(handle->sockaddr.ss_family) {
 		case AF_INET:
 			sockaddr_in = (struct sockaddr_in*)&(handle->sockaddr);
@@ -1016,6 +1005,7 @@ ESL_DECLARE(esl_status_t) esl_connect_timeout(esl_handle_t *handle, const char *
 			strncpy(handle->err, "Host resolves to unsupported address family", sizeof(handle->err));
 			goto fail;
 	}
+	freeaddrinfo(result);
 	
 	handle->sock = socket(handle->sockaddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 	
@@ -1069,10 +1059,7 @@ ESL_DECLARE(esl_status_t) esl_connect_timeout(esl_handle_t *handle, const char *
 			}
 		}
 #else
-		if (fcntl(handle->sock, F_SETFL, fd_flags)) {
-			snprintf(handle->err, sizeof(handle->err), "Socket Connection Error");
-			goto fail;
-		}
+		fcntl(handle->sock, F_SETFL, fd_flags);
 #endif	
 		rval = 0;
 	}
@@ -1167,19 +1154,19 @@ ESL_DECLARE(esl_status_t) esl_disconnect(esl_handle_t *handle)
 	esl_event_safe_destroy(&handle->last_ievent);
 	esl_event_safe_destroy(&handle->info_event);
 
-	if (handle->packet_buf) {
-		esl_buffer_destroy(&handle->packet_buf);
-	}
-
-	memset(handle, 0, sizeof(*handle));
-	handle->destroyed = 1;
-
 	if (mutex) {
 		esl_mutex_unlock(mutex);
 		esl_mutex_lock(mutex);
 		esl_mutex_unlock(mutex);
 		esl_mutex_destroy(&mutex);
 	}
+	
+	if (handle->packet_buf) {
+		esl_buffer_destroy(&handle->packet_buf);
+	}
+
+	memset(handle, 0, sizeof(*handle));
+	handle->destroyed = 1;
 
 	return status;
 }
@@ -1229,7 +1216,7 @@ ESL_DECLARE(esl_status_t) esl_recv_event_timed(esl_handle_t *handle, uint32_t ms
 		status = ESL_BREAK;
 	}
 
-	esl_mutex_unlock(handle->mutex);
+	if (handle->mutex) esl_mutex_unlock(handle->mutex);
 
 	return status;
 
@@ -1311,12 +1298,14 @@ ESL_DECLARE(esl_status_t) esl_recv_event(esl_handle_t *handle, int check_q, esl_
 						*e++ = '\0';
 						while(*e == '\n' || *e == '\r') e++;
 						
-						esl_url_decode(hval);
-						esl_log(ESL_LOG_DEBUG, "RECV HEADER [%s] = [%s]\n", hname, hval);
-						if (!strncmp(hval, "ARRAY::", 7)) {
-							esl_event_add_array(revent, hname, hval);
-						} else {
-							esl_event_add_header_string(revent, ESL_STACK_BOTTOM, hname, hval);
+						if (hval) {
+							esl_url_decode(hval);
+							esl_log(ESL_LOG_DEBUG, "RECV HEADER [%s] = [%s]\n", hname, hval);
+							if (!strncmp(hval, "ARRAY::", 7)) {
+								esl_event_add_array(revent, hname, hval);
+							} else {
+								esl_event_add_header_string(revent, ESL_STACK_BOTTOM, hname, hval);
+							}
 						}
 						
 						p = e;
@@ -1531,15 +1520,11 @@ ESL_DECLARE(esl_status_t) esl_send_recv_timed(esl_handle_t *handle, const char *
 	const char *hval;
 	esl_status_t status;
 	
-	if (!handle) {
-		return ESL_FAIL;
-	}
+    if (!handle || !handle->connected || handle->sock == ESL_SOCK_INVALID) {
+        return ESL_FAIL;
+    }
 
 	esl_mutex_lock(handle->mutex);
-	if (!handle->connected || handle->sock == ESL_SOCK_INVALID) {
-		esl_mutex_unlock(handle->mutex);
-		return ESL_FAIL;
-	}	
 
 	esl_event_safe_destroy(&handle->last_sr_event);
 

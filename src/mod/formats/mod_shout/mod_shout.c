@@ -619,11 +619,7 @@ static void *SWITCH_THREAD_FUNC write_stream_thread(switch_thread_t *thread, voi
 			}
 		} else {
 			memset(mp3buf, 0, 128);
-			ret = shout_send(context->shout, mp3buf, 128);
-			if (ret != SHOUTERR_SUCCESS) {
-				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Send error: %s\n", shout_get_error(context->shout));
-				goto error;
-			}
+			shout_send(context->shout, mp3buf, 128);
 		}
 
 		shout_sync(context->shout);

@@ -61,11 +61,6 @@
 %include "typemaps.i"
 %apply int *OUTPUT { int *len };
 
-%typemap(out) DbhQueryRowsReturn {
-    SWIG_arg += result;
-}
-
-
 /**
  * tell swig to grok everything defined in these header files and
  * build all sorts of c wrappers and lua shadows of the c wrappers.
@@ -120,7 +115,6 @@ class Dbh {
     bool connected();
     bool test_reactive(char *test_sql, char *drop_sql = NULL, char *reactive_sql = NULL);
     bool query(char *sql, SWIGLUA_FN lua_fun);
-    DbhQueryRowsReturn query_rows(lua_State* L, char *sql);
     int affected_rows();
     char *last_error();
     void clear_error();

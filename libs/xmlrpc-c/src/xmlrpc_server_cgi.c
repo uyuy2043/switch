@@ -189,7 +189,6 @@ xmlrpc_server_cgi_process_call(xmlrpc_registry * const registryP) {
     size_t input_size, output_size;
     int code;
     char *message;
-    char *err = NULL;
 
     /* Error-handling preconditions. */
     xmlrpc_env_init(&env);
@@ -210,13 +209,13 @@ xmlrpc_server_cgi_process_call(xmlrpc_registry * const registryP) {
     }
     if (!type || !xmlrpc_strneq(type, "text/xml", strlen("text/xml"))) {
 	char *template = "Expected content type: \"text/xml\", received: \"%s\"";
-    size_t err_len = strlen(template) + (type ? strlen(type) : 0) + 1;
+	size_t err_len = strlen(template) + strlen(type) + 1;
+	char *err = malloc(err_len);
 
-    err = malloc(err_len);
-
-    (void)snprintf(err, err_len, template, (type ? type : ""));
+	(void)snprintf(err, err_len, template, type);
         code = 400; message = "Bad Request";
         XMLRPC_FAIL(&env, XMLRPC_INTERNAL_ERROR, err);
+	free(err);
     }
     if (!length_str) {
         code = 411; message = "Length Required";
@@ -255,8 +254,6 @@ xmlrpc_server_cgi_process_call(xmlrpc_registry * const registryP) {
     send_xml(output_data, output_size);
     
  cleanup:
-    if (err)
-        free(err);
     if (input)
         xmlrpc_mem_block_free(input);
     if (output)

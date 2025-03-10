@@ -247,7 +247,7 @@ sendDirectoryDocument(TList *      const listP,
     uint32_t k;
 
     if (text) {
-        snprintf(z, sizeof(z), "Index of %s" CRLF, uri);
+        sprintf(z, "Index of %s" CRLF, uri);
         i = strlen(z)-2;
         p = z + i + 2;
 
@@ -257,17 +257,17 @@ sendDirectoryDocument(TList *      const listP,
         }
 
         *p = '\0';
-        strncat(z, CRLF CRLF
+        strcat(z, CRLF CRLF
                "Name                      Size      "
                "Date-Time             Type" CRLF
                "------------------------------------"
-               "--------------------------------------------"CRLF, sizeof(z) - strlen(z) - 1);
+               "--------------------------------------------"CRLF);
     } else {
-        snprintf(z, sizeof(z), "<HTML><HEAD><TITLE>Index of %s</TITLE></HEAD><BODY>"
+        sprintf(z, "<HTML><HEAD><TITLE>Index of %s</TITLE></HEAD><BODY>"
                 "<H1>Index of %s</H1><PRE>",
                 uri, uri);
-        strncat(z, "Name                      Size      "
-               "Date-Time             Type<HR WIDTH=100%>"CRLF, sizeof(z) - strlen(z) - 1);
+        strcat(z, "Name                      Size      "
+               "Date-Time             Type<HR WIDTH=100%>"CRLF);
     }
 
     HTTPWriteBodyChunk(sessionP, z, strlen(z));
@@ -293,7 +293,7 @@ sendDirectoryDocument(TList *      const listP,
         else
             --i;
             
-        snprintf(z, sizeof(z), "%s", fi->name);
+        strcpy(z, fi->name);
 
         k = strlen(z);
 
@@ -303,11 +303,14 @@ sendDirectoryDocument(TList *      const listP,
         }
 
         if (k > 24) {
-            snprintf(z1, sizeof(z1), "%.10s...%s", z, z + k - 11);
+            z[10] = '\0';
+            strcpy(z1, z);
+            strcat(z1, "...");
+            strcat(z1, z + k - 11);
             k = 24;
-            p = z1 + k;
+            p = z1 + 24;
         } else {
-            snprintf(z1, sizeof(z1), "%s", z);
+            strcpy(z1, z);
             
             ++k;
             p = z1 + k;
@@ -318,11 +321,11 @@ sendDirectoryDocument(TList *      const listP,
         }
 
         xmlrpc_gmtime(fi->time_write, &ftm);
-        snprintf(z2, sizeof(z2), "%02u/%02u/%04u %02u:%02u:%02u",ftm.tm_mday,ftm.tm_mon+1,
+        sprintf(z2, "%02u/%02u/%04u %02u:%02u:%02u",ftm.tm_mday,ftm.tm_mon+1,
                 ftm.tm_year+1900,ftm.tm_hour,ftm.tm_min,ftm.tm_sec);
 
         if (fi->attrib & A_SUBDIR) {
-            snprintf(z3, sizeof(z3), "   --  ");
+            strcpy(z3, "   --  ");
             z4 = "Directory";
         } else {
             if (fi->size < 9999)
@@ -340,7 +343,7 @@ sendDirectoryDocument(TList *      const listP,
                 }
             }
                 
-            snprintf(z3, sizeof(z3), "%5" PRIu64 " %c", fi->size, u);
+            sprintf(z3, "%5" PRIu64 " %c", fi->size, u);
             
             if (xmlrpc_streq(fi->name, ".."))
                 z4 = "";
@@ -352,9 +355,9 @@ sendDirectoryDocument(TList *      const listP,
         }
 
         if (text)
-            snprintf(z, sizeof(z), "%s%s %s    %s   %s"CRLF, z1, p, z3, z2, z4);
+            sprintf(z, "%s%s %s    %s   %s"CRLF, z1, p, z3, z2, z4);
         else
-            snprintf(z, sizeof(z), "<A HREF=\"%s%s\">%s</A>%s %s    %s   %s"CRLF,
+            sprintf(z, "<A HREF=\"%s%s\">%s</A>%s %s    %s   %s"CRLF,
                     fi->name, fi->attrib & A_SUBDIR ? "/" : "",
                     z1, p, z3, z2, z4);
 
@@ -363,9 +366,9 @@ sendDirectoryDocument(TList *      const listP,
         
     /* Write the tail of the file */
     if (text)
-        snprintf(z, sizeof(z), "%s", SERVER_PLAIN_INFO);
+        strcpy(z, SERVER_PLAIN_INFO);
     else
-        snprintf(z, sizeof(z), "%s", "</PRE>" SERVER_HTML_INFO "</BODY></HTML>" CRLF CRLF);
+        strcpy(z, "</PRE>" SERVER_HTML_INFO "</BODY></HTML>" CRLF CRLF);
     
     HTTPWriteBodyChunk(sessionP, z, strlen(z));
 }
@@ -686,7 +689,8 @@ HandlerDefaultBuiltin(TSession * const sessionP) {
         return TRUE;
     }
 
-    snprintf(z, sizeof(z), "%s%s", handlerP->filesPath, sessionP->requestInfo.uri);
+    strcpy(z, handlerP->filesPath);
+    strcat(z, sessionP->requestInfo.uri);
 
     p = z + strlen(z) - 1;
     if (*p == '/') {
@@ -706,7 +710,7 @@ HandlerDefaultBuiltin(TSession * const sessionP) {
         ** to avoid problems with some browsers (IE for examples) when
         ** they generate relative urls */
         if (!endingslash) {
-            snprintf(z, sizeof(z), "%s", sessionP->requestInfo.uri);
+            strcpy(z, sessionP->requestInfo.uri);
             p = z+strlen(z);
             *p = '/';
             *(p+1) = '\0';
@@ -723,7 +727,7 @@ HandlerDefaultBuiltin(TSession * const sessionP) {
             i = handlerP->defaultFileNames.size;
             while (i-- > 0) {
                 *p = '\0';        
-                strncat(z, handlerP->defaultFileNames.item[i], sizeof(z) - strlen(z) - 1);
+                strcat(z, (handlerP->defaultFileNames.item[i]));
                 if (FileStat(z, &fs)) {
                     if (!(fs.st_mode & S_IFDIR))
                         handleFile(sessionP, z, fs.st_mtime,
